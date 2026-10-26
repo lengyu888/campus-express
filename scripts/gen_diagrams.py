@@ -596,6 +596,100 @@ def deployment():
     save(fig, "fig_deploy.png")
 
 
+
+
+# ---------------------------------------------------------------- 9 业务流程图（泳道）
+def swimlane(name, lanes, steps, start_lane, end_lane, filename):
+    header_h = 0.55
+    top = 0.30
+    row0 = 1.65
+    step_h = 0.85
+    node_h = 0.50
+    W = 0.30 + sum(w for _, w in lanes) + 0.15
+    H = row0 + (len(steps) - 1) * step_h + 1.15
+
+    fig, ax = fig_ax(W, H)
+    xs = [0.30]
+    for _, w in lanes:
+        xs.append(xs[-1] + w)
+    cx = [(xs[i] + xs[i + 1]) / 2 for i in range(len(lanes))]
+
+    # 表头与泳道
+    ax.add_patch(Rectangle((xs[0], top), xs[-1] - xs[0], header_h,
+                           facecolor="#404040", edgecolor="#404040", lw=1.0, zorder=1))
+    for i, (title, _) in enumerate(lanes):
+        ax.text(cx[i], top + header_h / 2, title, ha="center", va="center",
+                fontsize=10, color="white", fontweight="bold", zorder=2)
+    ax.add_patch(Rectangle((xs[0], top + header_h), xs[-1] - xs[0], H - top - header_h,
+                           facecolor="white", edgecolor="black", lw=1.0, zorder=0.5))
+    for x in xs[1:-1]:
+        ax.add_line(Line2D([x, x], [top + header_h, H - 0.1], color="#606060", lw=0.8, zorder=0.8))
+
+    def ny(i):
+        return row0 + i * step_h
+
+    def nw(i):
+        return min(lanes[i][1] - 0.35, 2.65)
+
+    stadium(ax, cx[start_lane], 1.02, 1.0, 0.36, "开始", fs=9)
+    prev = None
+    for i, (lane, text) in enumerate(steps):
+        rbox(ax, cx[lane], ny(i), nw(lane), node_h, text, fs=8.6,
+             fc="white", ec="black", lw=0.9, radius=0.03)
+        if prev is not None:
+            pl, py = prev
+            if pl == lane:
+                arrow(ax, (cx[pl], py + node_h / 2), (cx[lane], ny(i) - node_h / 2),
+                      color="black", lw=0.9, shrink=0)
+            else:
+                mid = py + node_h / 2 + 0.14
+                poly_arrow(ax, [(cx[pl], py + node_h / 2), (cx[pl], mid),
+                                (cx[lane], mid), (cx[lane], ny(i) - node_h / 2)],
+                           color="black", lw=0.9)
+        prev = (lane, ny(i))
+
+    arrow(ax, (cx[start_lane], 1.20), (cx[steps[0][0]], ny(0) - node_h / 2),
+          color="black", lw=0.9, shrink=0)
+    stadium(ax, cx[end_lane], ny(len(steps) - 1) + 0.92, 1.0, 0.36, "结束", fs=9)
+    arrow(ax, (cx[end_lane], ny(len(steps) - 1) + node_h / 2),
+          (cx[end_lane], ny(len(steps) - 1) + 0.74), color="black", lw=0.9, shrink=0)
+
+    save(fig, filename)
+
+
+def business_flows():
+    recv_lanes = [("收件人", 2.25), ("驿站工作人员", 2.55), ("系统", 2.85)]
+    recv_steps = [
+        (1, "快递到站，核对件数"),
+        (1, "扫描或输入运单号"),
+        (2, "校验运单号，匹配收件人"),
+        (1, "确认驿站与空闲格口"),
+        (2, "生成取件码，状态置为在库"),
+        (2, "推送取件通知"),
+        (0, "查收通知，到站取件"),
+        (1, "录入取件码与手机号后四位"),
+        (2, "核验身份，写入取件记录"),
+        (2, "释放格口，推送成功通知"),
+        (0, "取件离站"),
+    ]
+    swimlane("收件", recv_lanes, recv_steps, 1, 0, "fig_flow_business_recv.png")
+
+    send_lanes = [("学生", 2.25), ("驿站工作人员", 2.55), ("系统", 2.85)]
+    send_steps = [
+        (0, "在线填写寄件信息"),
+        (2, "估算运费，生成寄件订单"),
+        (0, "到驿站交寄"),
+        (1, "揽收、称重"),
+        (2, "确认运费，订单置为已揽收"),
+        (1, "登记发出"),
+        (2, "写轨迹，订单置为已发出"),
+        (0, "查看订单与轨迹"),
+        (1, "确认签收，完成订单"),
+        (2, "推送完成通知"),
+    ]
+    swimlane("寄件", send_lanes, send_steps, 0, 2, "fig_flow_business_send.png")
+
+
 if __name__ == "__main__":
     architecture()
     module_tree()
@@ -605,3 +699,4 @@ if __name__ == "__main__":
     ns_inbound()
     ns_pickup()
     deployment()
+    business_flows()
