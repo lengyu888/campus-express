@@ -47,3 +47,6 @@ desktop.ini
 .tmp_pdf/
 ~$*.docx
 ~$*.xlsx
+
+# ---------- 本地工作数据 ----------
+.workbuddy/
