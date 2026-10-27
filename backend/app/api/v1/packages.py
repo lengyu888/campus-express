@@ -16,6 +16,7 @@ from app.models.pickup_record import PickupRecord
 from app.models.shelf import Shelf
 from app.models.station import Station
 from app.models.user import User
+from app.services.notify import push
 from app.schemas.package import (
     ExceptionIn, PackageBatchCreate, PackageCreate, PackageItem, PickupVerify, ReturnIn,
     ShelfMove, to_iso,
@@ -267,6 +268,12 @@ def do_inbound(db: Session, station: Station, item: PackageItem, operator: User)
         update(Shelf).where(Shelf.id == shelf.id).values(used_count=Shelf.used_count + 1)
     )
     db.flush()
+    push(
+        db, recipient.id if recipient else None, "pickup", "包裹已到站",
+        f"{station.name} 已收到您的 {item.courier_company} 包裹 {pkg.tracking_no}，"
+        f"取件码 {pkg.pickup_code}，请 7 天内领取。",
+        package_id=pkg.id,
+    )
     return pkg
 
 
@@ -568,6 +575,12 @@ def pickup_package(
             .where(Shelf.id == old_shelf_id)
             .values(used_count=func.greatest(Shelf.used_count - 1, 0))
         )
+
+    push(
+        db, pkg.recipient_id, "pickup", "取件成功",
+        f"包裹 {pkg.tracking_no} 已于 {now:%m-%d %H:%M} 完成出库，感谢使用校园驿站。",
+        package_id=pkg.id,
+    )
 
     try:
         db.commit()

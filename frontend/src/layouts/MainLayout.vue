@@ -35,8 +35,8 @@
         <div class="side-note">
           <span class="dot"></span>
           <div>
-            <strong>阶段三</strong>
-            <span>入库与取件</span>
+            <strong>阶段四</strong>
+            <span>寄件与报表</span>
           </div>
         </div>
       </div>
@@ -59,9 +59,15 @@
             <el-icon :size="18"><MagicStick /></el-icon>
             <span class="motion-dot" :class="{ off: motionTier === 'reduced' }"></span>
           </button>
-          <button class="icon-btn" type="button" title="消息" aria-label="消息">
+          <button
+            class="icon-btn"
+            type="button"
+            title="消息中心"
+            aria-label="消息中心"
+            @click="router.push('/notifications')"
+          >
             <el-icon :size="18"><Bell /></el-icon>
-            <span class="badge"></span>
+            <span v-if="unread" class="badge count">{{ unread > 99 ? '99+' : unread }}</span>
           </button>
           <el-dropdown trigger="click" @command="onCommand">
             <div class="user-chip">
@@ -105,11 +111,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
   HomeFilled, UserFilled, Setting, Bell, ArrowDown, ArrowUp, MagicStick, OfficeBuilding,
-  Box, CircleCheck, Tickets
+  Box, CircleCheck, Tickets, Van, DataLine, ChatDotRound, Document
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { motionTier, toggleMotion } from '../motion'
 import { routeLoading } from '../composables/routeProgress'
+import { unreadCount } from '../api/notifications'
 
 const route = useRoute()
 const router = useRouter()
@@ -120,11 +127,18 @@ const menus = computed(() => {
   if (auth.role === 'admin' || auth.role === 'staff') {
     items.push({ path: '/packages', label: '包裹管理', icon: Box })
     items.push({ path: '/pickup', label: '取件核验', icon: CircleCheck })
+    items.push({ path: '/shipment-manage', label: '寄件处理', icon: Van })
     items.push({ path: '/stations', label: '驿站管理', icon: OfficeBuilding })
+    items.push({ path: '/stats', label: '统计报表', icon: DataLine })
   } else {
     items.push({ path: '/my-packages', label: '我的包裹', icon: Tickets })
+    items.push({ path: '/shipments', label: '我的寄件', icon: Van })
   }
-  if (auth.role === 'admin') items.push({ path: '/users', label: '用户管理', icon: UserFilled })
+  items.push({ path: '/notifications', label: '消息中心', icon: ChatDotRound })
+  if (auth.role === 'admin') {
+    items.push({ path: '/announcements', label: '公告管理', icon: Document })
+    items.push({ path: '/users', label: '用户管理', icon: UserFilled })
+  }
   items.push({ path: '/profile', label: '个人中心', icon: Setting })
   return items
 })
@@ -144,7 +158,18 @@ watch(activeIndex, (next, prev) => {
 })
 
 const showTop = ref(false)
+const unread = ref(0)
 let ticking = false
+let unreadTimer = 0
+
+async function loadUnread() {
+  try {
+    const data = await unreadCount()
+    unread.value = data.unread
+  } catch (e) {
+    unread.value = 0
+  }
+}
 
 function onScroll() {
   if (ticking) return
@@ -160,8 +185,19 @@ function scrollToTop() {
   window.scrollTo({ top: 0, behavior })
 }
 
-onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
-onUnmounted(() => window.removeEventListener('scroll', onScroll))
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true })
+  loadUnread()
+  unreadTimer = window.setInterval(loadUnread, 60000)
+})
+onUnmounted(() => {
+  window.removeEventListener('scroll', onScroll)
+  window.clearInterval(unreadTimer)
+})
+
+watch(() => route.path, () => {
+  if (route.path !== '/notifications') loadUnread()
+})
 
 async function onCommand(command) {
   if (command === 'profile') {
@@ -353,7 +389,13 @@ async function onCommand(command) {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 0 2px;
+  padding: 0 2px 4px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-pill {
@@ -533,6 +575,23 @@ async function onCommand(command) {
   border-radius: 50%;
   background: var(--ios-red);
   border: 1.5px solid #f2f2f7;
+}
+
+.icon-btn .badge.count {
+  top: 3px;
+  right: 3px;
+  width: auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .user-chip {

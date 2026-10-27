@@ -40,6 +40,36 @@ const routes = [
         meta: { title: '我的包裹' }
       },
       {
+        path: 'shipments',
+        name: 'shipments',
+        component: () => import('../views/Shipments.vue'),
+        meta: { title: '我的寄件', roles: ['student'] }
+      },
+      {
+        path: 'shipment-manage',
+        name: 'shipment-manage',
+        component: () => import('../views/ShipmentManage.vue'),
+        meta: { title: '寄件处理', roles: ['staff', 'admin'] }
+      },
+      {
+        path: 'stats',
+        name: 'stats',
+        component: () => import('../views/Stats.vue'),
+        meta: { title: '统计报表', roles: ['staff', 'admin'] }
+      },
+      {
+        path: 'notifications',
+        name: 'notifications',
+        component: () => import('../views/Notifications.vue'),
+        meta: { title: '消息中心' }
+      },
+      {
+        path: 'announcements',
+        name: 'announcements',
+        component: () => import('../views/Announcements.vue'),
+        meta: { title: '公告管理', roles: ['admin'] }
+      },
+      {
         path: 'stations',
         name: 'stations',
         component: () => import('../views/Stations.vue'),

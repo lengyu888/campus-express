@@ -11,9 +11,9 @@
     <section class="hero" ref="heroRef" v-reveal @pointermove="onHeroMove" @pointerleave="resetHero">
       <div class="hero-glow"></div>
       <div class="hero-content">
-        <span class="hero-eyebrow">阶段三 · 入库与取件</span>
-        <h2>收件闭环已打通</h2>
-        <p>入库登记、取件码生成、双重核验出库与格口释放已全部可用。下一阶段将开放寄件、通知与统计报表。</p>
+        <span class="hero-eyebrow">阶段四 · 寄件与报表</span>
+        <h2>收件寄件双闭环</h2>
+        <p>寄件下单、揽收称重、轨迹跟踪、站内通知与统计报表已全部可用。下一阶段进入系统测试与部署验收。</p>
         <div class="hero-chips">
           <span class="chip" :class="health.database === 'up' ? 'ok' : 'bad'">
             <i></i> MySQL {{ health.database === 'up' ? '已连接' : '未连接' }}
@@ -83,7 +83,7 @@
             <h3>开发进度</h3>
             <p>按阶段验收，确认后提交</p>
           </div>
-          <span class="panel-meta">3 / 5</span>
+          <span class="panel-meta">4 / 5</span>
         </div>
         <div class="timeline">
           <div v-for="stage in stages" :key="stage.name" class="stage" :class="stage.state">
@@ -185,15 +185,15 @@ function animateNumbers(targets) {
 }
 
 const studentSoon = [
-  { title: '我的包裹', desc: '取件码、超期提醒与状态跟踪', stage: '可用', icon: Tickets, tint: 'rgba(0,122,255,.12)', color: '#007aff', path: '/my-packages' },
-  { title: '我的寄件', desc: '在线下单、运费估算与轨迹', stage: '阶段四', icon: Van, tint: 'rgba(255,149,0,.14)', color: '#c26a00' },
-  { title: '消息通知', desc: '取件提醒、超期提醒与公告', stage: '阶段四', icon: Bell, tint: 'rgba(52,199,89,.13)', color: '#248a3d' }
+  { title: '我的寄件', desc: '在线下单、运费估算与轨迹', stage: '可用', icon: Van, tint: 'rgba(255,149,0,.14)', color: '#c26a00', path: '/shipments' },
+  { title: '消息中心', desc: '取件提醒、寄件进展与公告', stage: '可用', icon: Bell, tint: 'rgba(52,199,89,.13)', color: '#248a3d', path: '/notifications' },
+  { title: '我的包裹', desc: '取件码、超期提醒与状态跟踪', stage: '可用', icon: Tickets, tint: 'rgba(0,122,255,.12)', color: '#007aff', path: '/my-packages' }
 ]
 
 const staffSoon = [
-  { title: '包裹管理', desc: '入库登记、格口分配与批量导入', stage: '可用', icon: Box, tint: 'rgba(0,122,255,.12)', color: '#007aff', path: '/packages' },
-  { title: '取件核验', desc: '双重校验、出库签收与记录', stage: '可用', icon: CircleCheck, tint: 'rgba(52,199,89,.13)', color: '#248a3d', path: '/pickup' },
-  { title: '统计报表', desc: '收发量、超期率与驿站工作量', stage: '阶段四', icon: DataLine, tint: 'rgba(175,82,222,.12)', color: '#8944ab' }
+  { title: '寄件处理', desc: '揽收称重、登记发出与完成', stage: '可用', icon: Van, tint: 'rgba(0,122,255,.12)', color: '#007aff', path: '/shipment-manage' },
+  { title: '统计报表', desc: '收发量、超期率与驿站工作量', stage: '可用', icon: DataLine, tint: 'rgba(175,82,222,.12)', color: '#8944ab', path: '/stats' },
+  { title: '消息中心', desc: '取件提醒、寄件进展与公告', stage: '可用', icon: Bell, tint: 'rgba(52,199,89,.13)', color: '#248a3d', path: '/notifications' }
 ]
 
 const quickCards = computed(() => (auth.role === 'student' ? studentSoon : staffSoon))
@@ -201,17 +201,17 @@ const quickCards = computed(() => (auth.role === 'student' ? studentSoon : staff
 const stages = [
   { name: '阶段一 认证与用户管理', state: 'done', stateText: '已完成', desc: 'Docker 基础设施、JWT 登录、账号与角色管理' },
   { name: '阶段二 驿站与货架管理', state: 'done', stateText: '已完成', desc: '驿站档案、货架分区、容量与占用率' },
-  { name: '阶段三 快递入库与取件出库', state: 'done', stateText: '待验收', desc: '运单登记、格口分配、取件码、双重核验出库' },
-  { name: '阶段四 寄件、通知与统计', state: 'todo', stateText: '待开始', desc: '寄件下单、轨迹跟踪、消息通知与报表' },
+  { name: '阶段三 快递入库与取件出库', state: 'done', stateText: '已完成', desc: '运单登记、格口分配、取件码、双重核验出库' },
+  { name: '阶段四 寄件、通知与统计', state: 'done', stateText: '待验收', desc: '寄件下单、轨迹跟踪、消息通知与报表' },
   { name: '阶段五 系统测试与部署验收', state: 'todo', stateText: '待开始', desc: '测试用例、BUG 清单、一键部署演练' }
 ]
 
 const checks = [
-  '进入「包裹管理」，确认 7 件演示包裹与状态分布',
-  '登记一件新包裹，记录生成的 6 位取件码',
-  '进入「取件核验」，输入取件码与手机号后四位',
-  '出库成功后确认包裹状态与格口占用变化',
-  '用学生账号登录，在「我的包裹」查看取件码'
+  '学生账号进入「我的寄件」，新建一单并查看运费估算',
+  '工作人员进入「寄件处理」，揽收称重并确认运费',
+  '依次登记发出、确认完成，查看轨迹节点',
+  '进入「消息中心」，查看通知并全部标记已读',
+  '管理员进入「统计报表」，切换 7 / 14 / 30 天趋势'
 ]
 
 async function loadHealth() {
