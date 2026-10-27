@@ -35,8 +35,8 @@
         <div class="side-note">
           <span class="dot"></span>
           <div>
-            <strong>阶段一</strong>
-            <span>认证与用户管理</span>
+            <strong>阶段二</strong>
+            <span>驿站与货架</span>
           </div>
         </div>
       </div>
@@ -104,7 +104,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  HomeFilled, UserFilled, Setting, Bell, ArrowDown, ArrowUp, MagicStick
+  HomeFilled, UserFilled, Setting, Bell, ArrowDown, ArrowUp, MagicStick, OfficeBuilding
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { motionTier, toggleMotion } from '../motion'
@@ -116,6 +116,9 @@ const auth = useAuthStore()
 
 const menus = computed(() => {
   const items = [{ path: '/dashboard', label: '工作台', icon: HomeFilled }]
+  if (auth.role === 'admin' || auth.role === 'staff') {
+    items.push({ path: '/stations', label: '驿站管理', icon: OfficeBuilding })
+  }
   if (auth.role === 'admin') items.push({ path: '/users', label: '用户管理', icon: UserFilled })
   items.push({ path: '/profile', label: '个人中心', icon: Setting })
   return items

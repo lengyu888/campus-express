@@ -11,9 +11,9 @@
     <section class="hero" ref="heroRef" v-reveal @pointermove="onHeroMove" @pointerleave="resetHero">
       <div class="hero-glow"></div>
       <div class="hero-content">
-        <span class="hero-eyebrow">阶段一 · 认证与用户管理</span>
-        <h2>系统运行正常</h2>
-        <p>认证与用户管理已完成并通过接口自测，可按右侧指引体验。下一阶段将开放驿站与货架管理。</p>
+        <span class="hero-eyebrow">阶段二 · 驿站与货架</span>
+        <h2>驿站与货架已就绪</h2>
+        <p>两个驿站、五个货架已录入，支持容量与占用率管理。下一阶段将开放快递入库与取件核验。</p>
         <div class="hero-chips">
           <span class="chip" :class="health.database === 'up' ? 'ok' : 'bad'">
             <i></i> MySQL {{ health.database === 'up' ? '已连接' : '未连接' }}
@@ -81,7 +81,7 @@
             <h3>开发进度</h3>
             <p>按阶段验收，确认后提交</p>
           </div>
-          <span class="panel-meta">1 / 5</span>
+          <span class="panel-meta">2 / 5</span>
         </div>
         <div class="timeline">
           <div v-for="stage in stages" :key="stage.name" class="stage" :class="stage.state">
@@ -186,19 +186,19 @@ const adminSoon = [
 const quickCards = computed(() => (auth.role === 'admin' ? adminSoon : studentSoon))
 
 const stages = [
-  { name: '阶段一 认证与用户管理', state: 'done', stateText: '待验收', desc: 'Docker 基础设施、JWT 登录、账号与角色管理' },
-  { name: '阶段二 驿站与货架管理', state: 'todo', stateText: '待开始', desc: '驿站档案、货架分区、容量与占用率' },
+  { name: '阶段一 认证与用户管理', state: 'done', stateText: '已完成', desc: 'Docker 基础设施、JWT 登录、账号与角色管理' },
+  { name: '阶段二 驿站与货架管理', state: 'done', stateText: '待验收', desc: '驿站档案、货架分区、容量与占用率' },
   { name: '阶段三 快递入库与取件出库', state: 'todo', stateText: '待开始', desc: '运单登记、格口分配、取件码、双重核验出库' },
   { name: '阶段四 寄件、通知与统计', state: 'todo', stateText: '待开始', desc: '寄件下单、轨迹跟踪、消息通知与报表' },
   { name: '阶段五 系统测试与部署验收', state: 'todo', stateText: '待开始', desc: '测试用例、BUG 清单、一键部署演练' }
 ]
 
 const checks = [
-  '管理员登录，确认侧边栏菜单完整',
-  '用户管理中新增一个工作人员账号',
-  '用新账号登录，再禁用后尝试登录',
-  '个人中心修改密码并重新登录',
-  '学生账号登录，确认看不到用户管理'
+  '进入「驿站管理」，确认 2 个驿站与 5 个货架',
+  '新增一个驿站，指定负责人并保存',
+  '打开货架管理，新增、修改、删除货架',
+  '停用驿站，确认状态与占用率展示',
+  '用工作人员账号登录，确认只能查看不能编辑'
 ]
 
 async function loadHealth() {

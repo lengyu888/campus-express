@@ -22,6 +22,12 @@ const routes = [
         meta: { title: '工作台' }
       },
       {
+        path: 'stations',
+        name: 'stations',
+        component: () => import('../views/Stations.vue'),
+        meta: { title: '驿站管理', roles: ['admin', 'staff'] }
+      },
+      {
         path: 'users',
         name: 'users',
         component: () => import('../views/Users.vue'),
