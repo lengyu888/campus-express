@@ -1,0 +1,93 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { tokenStore } from '../api/http'
+import { startRoute, endRoute } from '../composables/routeProgress'
+
+const routes = [
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('../views/Login.vue'),
+    meta: { public: true, title: '登录' }
+  },
+  {
+    path: '/',
+    component: () => import('../layouts/MainLayout.vue'),
+    redirect: '/dashboard',
+    children: [
+      {
+        path: 'dashboard',
+        name: 'dashboard',
+        component: () => import('../views/Dashboard.vue'),
+        meta: { title: '工作台' }
+      },
+      {
+        path: 'users',
+        name: 'users',
+        component: () => import('../views/Users.vue'),
+        meta: { title: '用户管理', roles: ['admin'] }
+      },
+      {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('../views/Profile.vue'),
+        meta: { title: '个人中心' }
+      }
+    ]
+  },
+  {
+    path: '/403',
+    name: 'forbidden',
+    component: () => import('../views/Forbidden.vue'),
+    meta: { public: true, title: '无权访问' }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'not-found',
+    component: () => import('../views/NotFound.vue'),
+    meta: { public: true, title: '页面不存在' }
+  }
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes
+})
+
+router.beforeEach(async (to) => {
+  startRoute()
+  const auth = useAuthStore()
+
+  if (to.meta.public) {
+    if (to.path === '/login' && tokenStore.access) return { path: '/' }
+    return true
+  }
+
+  if (!tokenStore.access) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  if (!auth.user) {
+    try {
+      await auth.loadMe()
+    } catch (e) {
+      tokenStore.clear()
+      return { path: '/login', query: { redirect: to.fullPath } }
+    }
+  }
+
+  if (to.meta.roles && !to.meta.roles.includes(auth.user?.role)) {
+    return { path: '/403' }
+  }
+
+  return true
+})
+
+router.afterEach((to) => {
+  endRoute()
+  document.title = to.meta.title ? `${to.meta.title} · 校园快递收发系统` : '校园快递收发系统'
+})
+
+router.onError(() => endRoute())
+
+export default router

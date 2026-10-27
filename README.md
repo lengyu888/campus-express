@@ -22,19 +22,20 @@
 
 ```
 Campus_Express/
-├── backend/                 # FastAPI 后端服务（开发阶段填充）
-├── frontend/                # Vue 3 前端工程（开发阶段填充）
-├── deploy/                  # Docker Compose 编排与环境配置
+├── backend/                 # FastAPI 后端（app / alembic / seed）
+├── frontend/                # Vue 3 前端（views / router / stores / api）
+├── deploy/                  # Docker Compose 编排与 MySQL 初始化
 ├── docs/
-│   ├── 系统设计文档.md       # 设计文档 Markdown 源文件
-│   ├── 系统设计文档.docx     # 课程提交版（Word）
-│   └── assets/              # 设计图（模块结构图、E-R 图、流程图等）
-├── scripts/                 # 初始化、迁移等辅助脚本
+│   ├── 系统设计文档.*        # 设计文档（md / docx / pdf）
+│   ├── 交付物/              # 业务流程图、功能分析表、数据分析表、数据库表结构
+│   ├── 阶段验收/            # 各阶段验收单
+│   └── assets/              # 设计图源文件
+├── scripts/                 # 绘图、文档生成、接口冒烟测试
 ├── 软件工程课程设计PPT.pdf   # 课程要求原始材料
 └── README.md
 ```
 
-## 4. 启动方式（设计目标）
+## 4. 启动方式
 
 系统规划两种启动方式，均使用 Docker 中的数据库镜像，保证组内成员环境一致：
 
@@ -42,17 +43,23 @@ Campus_Express/
 
 ```bash
 # 1) 只启动数据库与缓存
+cp deploy/.env.example deploy/.env
 docker compose -f deploy/docker-compose.infra.yml up -d
 
 # 2) 后端
-cd backend && python -m venv .venv && .venv/Scripts/activate
+cd backend
+python -m venv .venv && .venv/Scripts/activate
 pip install -r requirements.txt
+cp .env.example .env
 alembic upgrade head
+python -m app.seed
 uvicorn app.main:app --reload --port 8000
 
 # 3) 前端
 cd frontend && npm install && npm run dev
 ```
+
+访问 `http://localhost:5173`。
 
 ### 4.2 Docker 一键启动
 
@@ -63,6 +70,9 @@ docker compose -f deploy/docker-compose.yml up -d --build
 
 访问 `http://localhost` 进入系统，`http://localhost:8000/docs` 查看接口文档。
 
+> 两种方式共用 `deploy/` 下的数据卷，切换前先停止当前方式（`docker compose ... down`，不要加 `-v`）。
+> 演示账号：`admin / Admin@123`、`staff01 / Staff@123`、`2023010101 / Student@123`。
+
 ## 5. 当前进度
 
 - [x] 仓库初始化与目录规划
@@ -71,8 +81,12 @@ docker compose -f deploy/docker-compose.yml up -d --build
 - [x] 需求分析交付物：业务流程图、功能分析表、数据分析表
 - [x] 数据库表结构交付物（按课程模板）
 - [x] 需求分析交付物（业务流程图、数据分析表、功能分析表）
+- [x] **阶段一：基础设施 + 认证 + 用户管理（待验收）**
+- [ ] 阶段二：驿站与货架管理
+- [ ] 阶段三：快递入库与取件出库
+- [ ] 阶段四：寄件、通知与统计
+- [ ] 阶段五：测试、部署与验收
 - [ ] 界面原型（每个功能项一张原型图）
-- [ ] 前后端编码实现
 - [ ] 测试用例与 BUG 清单
 - [ ] 项目总结与答辩材料
 
@@ -85,6 +99,7 @@ docker compose -f deploy/docker-compose.yml up -d --build
 - [功能分析表（Excel）](docs/交付物/功能分析表.xlsx)
 - [数据分析表（Excel）](docs/交付物/数据分析表.xlsx)
 - [数据库表结构（Excel）](docs/交付物/数据库表结构.xlsx)
+- [阶段一验收单](docs/阶段验收/阶段一-认证与用户.md)
 - [设计图源文件](docs/assets)
 
 设计阶段已确认的关键决策：

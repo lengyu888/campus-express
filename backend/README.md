@@ -1,21 +1,32 @@
 # backend
 
-FastAPI 后端服务目录，开发阶段按以下结构组织：
+FastAPI 后端，阶段一已实现认证与用户管理。
 
 ```
 backend/
 ├── app/
-│   ├── main.py              # 应用入口、路由注册、中间件
-│   ├── core/                # 配置、安全、依赖注入、异常处理
-│   ├── models/              # SQLAlchemy ORM 模型
-│   ├── schemas/             # Pydantic 请求/响应模型
-│   ├── api/v1/              # 按模块划分的路由
-│   ├── services/            # 业务逻辑
-│   └── utils/               # 工具函数
+│   ├── main.py              # 应用入口、中间件、异常处理、健康检查
+│   ├── core/                # 配置、安全、依赖、Redis、统一响应
+│   ├── db/                  # 引擎与会话
+│   ├── models/              # SQLAlchemy 模型
+│   ├── schemas/             # Pydantic 模型
+│   ├── api/v1/              # 路由（auth、users）
+│   └── seed.py              # 演示账号初始化
 ├── alembic/                 # 数据库迁移
-├── tests/                   # 单元测试与接口测试
 ├── requirements.txt
 └── Dockerfile
 ```
 
-接口前缀统一为 `/api/v1`，自动生成的 OpenAPI 文档位于 `/docs`。
+本地启动：
+
+```bash
+python -m venv .venv
+source .venv/Scripts/activate
+pip install -r requirements.txt
+cp .env.example .env
+alembic upgrade head
+python -m app.seed
+uvicorn app.main:app --reload --port 8000
+```
+
+接口文档：http://localhost:8000/docs
