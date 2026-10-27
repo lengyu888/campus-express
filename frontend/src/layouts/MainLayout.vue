@@ -35,8 +35,8 @@
         <div class="side-note">
           <span class="dot"></span>
           <div>
-            <strong>阶段二</strong>
-            <span>驿站与货架</span>
+            <strong>阶段三</strong>
+            <span>入库与取件</span>
           </div>
         </div>
       </div>
@@ -104,7 +104,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
-  HomeFilled, UserFilled, Setting, Bell, ArrowDown, ArrowUp, MagicStick, OfficeBuilding
+  HomeFilled, UserFilled, Setting, Bell, ArrowDown, ArrowUp, MagicStick, OfficeBuilding,
+  Box, CircleCheck, Tickets
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { motionTier, toggleMotion } from '../motion'
@@ -117,7 +118,11 @@ const auth = useAuthStore()
 const menus = computed(() => {
   const items = [{ path: '/dashboard', label: '工作台', icon: HomeFilled }]
   if (auth.role === 'admin' || auth.role === 'staff') {
+    items.push({ path: '/packages', label: '包裹管理', icon: Box })
+    items.push({ path: '/pickup', label: '取件核验', icon: CircleCheck })
     items.push({ path: '/stations', label: '驿站管理', icon: OfficeBuilding })
+  } else {
+    items.push({ path: '/my-packages', label: '我的包裹', icon: Tickets })
   }
   if (auth.role === 'admin') items.push({ path: '/users', label: '用户管理', icon: UserFilled })
   items.push({ path: '/profile', label: '个人中心', icon: Setting })

@@ -1,10 +1,13 @@
 """初始化演示数据：python -m app.seed"""
-from datetime import time
+from datetime import datetime, time, timedelta
+from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.security import hash_password
 from app.db.session import SessionLocal
+from app.models.package import Package
+from app.models.pickup_record import PickupRecord
 from app.models.shelf import Shelf
 from app.models.station import Station
 from app.models.user import User
@@ -72,6 +75,18 @@ STATIONS = [
             {"code": "B-02", "zone": "A 区", "capacity": 20},
         ],
     },
+]
+
+
+DEMO_PACKAGES = [
+    # station, shelf, tracking, phone, name, company, type, weight, code, days_ago, status
+    ("ST-A", "A-01", "SF1234567890", "13800000002", "张同学", "顺丰速运", "normal", "1.20", "830215", 1, "in_stock"),
+    ("ST-A", "A-01", "JD9876543210", "13800000003", "李同学", "京东物流", "fragile", "2.50", "417026", 5, "in_stock"),
+    ("ST-A", "A-01", "YT6655443322", "13800000002", "张同学", "圆通速递", "normal", "0.80", "662318", 0, "in_stock"),
+    ("ST-A", "A-01", "ZT7788990011", "13900001111", "王同学", "中通快递", "doc", "0.10", "205944", 1, "in_stock"),
+    ("ST-A", "A-02", "STO1122334455", "13800000003", "李同学", "申通快递", "large", "6.30", None, 6, "picked"),
+    ("ST-B", "B-01", "YD5566778899", "13800000002", "张同学", "韵达快递", "normal", "1.60", "318820", 2, "exception"),
+    ("ST-B", "B-01", "EMS0099887766", "13800000003", "李同学", "EMS", "normal", "0.95", None, 4, "returned"),
 ]
 
 
@@ -157,11 +172,97 @@ def seed_stations(db) -> list[str]:
     return created
 
 
+def seed_packages(db) -> int:
+    """演示包裹。仅在 packages 为空时灌入，并按在库包裹重算货架占用。"""
+    if db.scalar(select(func.count()).select_from(Package)):
+        return 0
+
+    operator = db.execute(
+        select(User).where(User.student_no == "staff01")
+    ).scalar_one_or_none()
+    if operator is None:
+        return 0
+
+    now = datetime.now()
+    created = 0
+    for (station_code, shelf_code, tracking, phone, name, company,
+         ptype, weight, code, days_ago, status) in DEMO_PACKAGES:
+        station = db.execute(
+            select(Station).where(Station.code == station_code)
+        ).scalar_one_or_none()
+        if station is None:
+            continue
+        shelf = db.execute(
+            select(Shelf).where(Shelf.station_id == station.id, Shelf.code == shelf_code)
+        ).scalar_one_or_none()
+
+        recipient = db.execute(
+            select(User).where(User.phone == phone)
+        ).scalar_one_or_none()
+        stored_at = now - timedelta(days=days_ago, hours=3)
+        pkg = Package(
+            tracking_no=tracking,
+            station_id=station.id,
+            shelf_id=shelf.id if shelf and status in ("in_stock", "overdue") else None,
+            recipient_id=recipient.id if recipient else None,
+            recipient_name=name,
+            recipient_phone=phone,
+            courier_company=company,
+            package_type=ptype,
+            weight=Decimal(weight),
+            status="in_stock" if status in ("in_stock", "overdue") else status,
+            pickup_code=code,
+            code_expire_at=stored_at + timedelta(days=7) if code else None,
+            stored_at=stored_at,
+            overdue_days=max(0, days_ago - 3) if days_ago > 3 else 0,
+            remark="登记异常：包装破损：待联系收件人" if status == "exception" else None,
+            created_by=operator.id,
+        )
+        if status == "picked":
+            pkg.picked_at = now - timedelta(days=2)
+            pkg.pickup_code = None
+            pkg.code_expire_at = None
+        elif status == "returned":
+            pkg.remark = "超期未取，已退回发件方"
+        elif status == "exception":
+            pkg.shelf_id = shelf.id if shelf else None
+
+        db.add(pkg)
+        db.flush()
+
+        if status == "picked":
+            db.add(
+                PickupRecord(
+                    package_id=pkg.id,
+                    operator_id=operator.id,
+                    pickup_code="513907",
+                    phone_suffix=phone[-4:],
+                    verify_type="code_phone",
+                    picked_at=pkg.picked_at,
+                )
+            )
+        created += 1
+
+    db.flush()
+    for shelf in db.execute(select(Shelf)).scalars().all():
+        used = db.scalar(
+            select(func.count()).select_from(Package).where(
+                Package.shelf_id == shelf.id,
+                Package.status.in_(("in_stock", "overdue", "exception")),
+            )
+        ) or 0
+        shelf.used_count = int(used)
+
+    db.commit()
+    return created
+
+
 def main():
     db = SessionLocal()
     try:
         users = seed_users(db)
         stations = seed_stations(db)
+        packages = seed_packages(db)
     finally:
         db.close()
 
@@ -173,6 +274,10 @@ def main():
         print(f"seed 完成，新增驿站：{', '.join(stations)}")
     else:
         print("seed 完成，驿站数据已存在")
+    if packages:
+        print(f"seed 完成，新增演示包裹 {packages} 件")
+    else:
+        print("seed 完成，包裹数据已存在")
     print("管理员 admin / Admin@123")
     print("工作人员 staff01 / Staff@123")
     print("学生 2023010101 / Student@123")

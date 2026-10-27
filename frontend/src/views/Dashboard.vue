@@ -11,9 +11,9 @@
     <section class="hero" ref="heroRef" v-reveal @pointermove="onHeroMove" @pointerleave="resetHero">
       <div class="hero-glow"></div>
       <div class="hero-content">
-        <span class="hero-eyebrow">阶段二 · 驿站与货架</span>
-        <h2>驿站与货架已就绪</h2>
-        <p>两个驿站、五个货架已录入，支持容量与占用率管理。下一阶段将开放快递入库与取件核验。</p>
+        <span class="hero-eyebrow">阶段三 · 入库与取件</span>
+        <h2>收件闭环已打通</h2>
+        <p>入库登记、取件码生成、双重核验出库与格口释放已全部可用。下一阶段将开放寄件、通知与统计报表。</p>
         <div class="hero-chips">
           <span class="chip" :class="health.database === 'up' ? 'ok' : 'bad'">
             <i></i> MySQL {{ health.database === 'up' ? '已连接' : '未连接' }}
@@ -36,7 +36,7 @@
       </div>
     </section>
 
-    <section v-if="auth.role === 'admin'" class="stats">
+    <section class="stats">
       <article
         v-for="(item, i) in stats"
         :key="item.label"
@@ -61,7 +61,9 @@
         v-for="(item, i) in quickCards"
         :key="item.title"
         class="soon-card card"
+        :class="{ clickable: item.path }"
         v-reveal="120 + i * 70"
+        @click="item.path && router.push(item.path)"
       >
         <div class="stat-icon" :style="{ background: item.tint, color: item.color }">
           <el-icon :size="19"><component :is="item.icon" /></el-icon>
@@ -70,7 +72,7 @@
           <strong>{{ item.title }}</strong>
           <p>{{ item.desc }}</p>
         </div>
-        <span class="soon-tag">{{ item.stage }}</span>
+        <span class="soon-tag" :class="{ live: item.path }">{{ item.stage }}</span>
       </article>
     </section>
 
@@ -81,7 +83,7 @@
             <h3>开发进度</h3>
             <p>按阶段验收，确认后提交</p>
           </div>
-          <span class="panel-meta">2 / 5</span>
+          <span class="panel-meta">3 / 5</span>
         </div>
         <div class="timeline">
           <div v-for="stage in stages" :key="stage.name" class="stage" :class="stage.state">
@@ -122,14 +124,16 @@
 <script setup>
 import { computed, reactive, ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
+import { useRouter } from 'vue-router'
 import {
-  Refresh, UserFilled, Reading, Suitcase, Key, Box, Van, Bell, InfoFilled, CircleCheck, DataLine
+  Refresh, Box, Warning, Clock, CircleCheck, Van, Bell, InfoFilled, DataLine, Tickets
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
-import { listUsers } from '../api/users'
+import { listPackages, packagesSummary } from '../api/packages'
 import { motionTier } from '../motion'
 
 const auth = useAuthStore()
+const router = useRouter()
 const heroRef = ref(null)
 const loading = ref(false)
 let scrollTicking = false
@@ -147,12 +151,21 @@ const today = computed(() =>
   new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'long' })
 )
 
-const stats = ref([
-  { label: '用户总数', value: 0, hint: '全部角色', icon: UserFilled, tint: 'rgba(0,122,255,.12)', color: '#007aff' },
-  { label: '学生', value: 0, hint: '可自助注册', icon: Reading, tint: 'rgba(52,199,89,.13)', color: '#248a3d' },
-  { label: '工作人员', value: 0, hint: '驿站值班', icon: Suitcase, tint: 'rgba(255,149,0,.14)', color: '#c26a00' },
-  { label: '管理员', value: 0, hint: '系统维护', icon: Key, tint: 'rgba(175,82,222,.12)', color: '#8944ab' }
-])
+const staffStats = [
+  { label: '在库包裹', value: 0, hint: '待取件', icon: Box, tint: 'rgba(0,122,255,.12)', color: '#007aff' },
+  { label: '超期', value: 0, hint: '超过 3 天', icon: Warning, tint: 'rgba(255,149,0,.14)', color: '#c26a00' },
+  { label: '今日入库', value: 0, hint: '登记件数', icon: Clock, tint: 'rgba(52,199,89,.13)', color: '#248a3d' },
+  { label: '今日出库', value: 0, hint: '核验取件', icon: CircleCheck, tint: 'rgba(175,82,222,.12)', color: '#8944ab' }
+]
+
+const studentStats = [
+  { label: '待取件', value: 0, hint: '凭取件码领取', icon: Tickets, tint: 'rgba(0,122,255,.12)', color: '#007aff' },
+  { label: '超期', value: 0, hint: '超过 3 天', icon: Warning, tint: 'rgba(255,149,0,.14)', color: '#c26a00' },
+  { label: '已取件', value: 0, hint: '历史完成', icon: CircleCheck, tint: 'rgba(52,199,89,.13)', color: '#248a3d' },
+  { label: '累计包裹', value: 0, hint: '全部记录', icon: Box, tint: 'rgba(175,82,222,.12)', color: '#8944ab' }
+]
+
+const stats = ref(staffStats)
 
 const display = ref([0, 0, 0, 0])
 let rafId = 0
@@ -172,33 +185,33 @@ function animateNumbers(targets) {
 }
 
 const studentSoon = [
-  { title: '我的包裹', desc: '到站通知、取件码与状态跟踪', stage: '阶段三', icon: Box, tint: 'rgba(0,122,255,.12)', color: '#007aff' },
+  { title: '我的包裹', desc: '取件码、超期提醒与状态跟踪', stage: '可用', icon: Tickets, tint: 'rgba(0,122,255,.12)', color: '#007aff', path: '/my-packages' },
   { title: '我的寄件', desc: '在线下单、运费估算与轨迹', stage: '阶段四', icon: Van, tint: 'rgba(255,149,0,.14)', color: '#c26a00' },
   { title: '消息通知', desc: '取件提醒、超期提醒与公告', stage: '阶段四', icon: Bell, tint: 'rgba(52,199,89,.13)', color: '#248a3d' }
 ]
 
-const adminSoon = [
-  { title: '快递入库', desc: '运单登记、格口分配与取件码', stage: '阶段三', icon: Box, tint: 'rgba(0,122,255,.12)', color: '#007aff' },
-  { title: '取件核验', desc: '双重校验、出库签收与记录', stage: '阶段三', icon: CircleCheck, tint: 'rgba(52,199,89,.13)', color: '#248a3d' },
+const staffSoon = [
+  { title: '包裹管理', desc: '入库登记、格口分配与批量导入', stage: '可用', icon: Box, tint: 'rgba(0,122,255,.12)', color: '#007aff', path: '/packages' },
+  { title: '取件核验', desc: '双重校验、出库签收与记录', stage: '可用', icon: CircleCheck, tint: 'rgba(52,199,89,.13)', color: '#248a3d', path: '/pickup' },
   { title: '统计报表', desc: '收发量、超期率与驿站工作量', stage: '阶段四', icon: DataLine, tint: 'rgba(175,82,222,.12)', color: '#8944ab' }
 ]
 
-const quickCards = computed(() => (auth.role === 'admin' ? adminSoon : studentSoon))
+const quickCards = computed(() => (auth.role === 'student' ? studentSoon : staffSoon))
 
 const stages = [
   { name: '阶段一 认证与用户管理', state: 'done', stateText: '已完成', desc: 'Docker 基础设施、JWT 登录、账号与角色管理' },
-  { name: '阶段二 驿站与货架管理', state: 'done', stateText: '待验收', desc: '驿站档案、货架分区、容量与占用率' },
-  { name: '阶段三 快递入库与取件出库', state: 'todo', stateText: '待开始', desc: '运单登记、格口分配、取件码、双重核验出库' },
+  { name: '阶段二 驿站与货架管理', state: 'done', stateText: '已完成', desc: '驿站档案、货架分区、容量与占用率' },
+  { name: '阶段三 快递入库与取件出库', state: 'done', stateText: '待验收', desc: '运单登记、格口分配、取件码、双重核验出库' },
   { name: '阶段四 寄件、通知与统计', state: 'todo', stateText: '待开始', desc: '寄件下单、轨迹跟踪、消息通知与报表' },
   { name: '阶段五 系统测试与部署验收', state: 'todo', stateText: '待开始', desc: '测试用例、BUG 清单、一键部署演练' }
 ]
 
 const checks = [
-  '进入「驿站管理」，确认 2 个驿站与 5 个货架',
-  '新增一个驿站，指定负责人并保存',
-  '打开货架管理，新增、修改、删除货架',
-  '停用驿站，确认状态与占用率展示',
-  '用工作人员账号登录，确认只能查看不能编辑'
+  '进入「包裹管理」，确认 7 件演示包裹与状态分布',
+  '登记一件新包裹，记录生成的 6 位取件码',
+  '进入「取件核验」，输入取件码与手机号后四位',
+  '出库成功后确认包裹状态与格口占用变化',
+  '用学生账号登录，在「我的包裹」查看取件码'
 ]
 
 async function loadHealth() {
@@ -213,15 +226,24 @@ async function loadHealth() {
 }
 
 async function loadStats() {
-  if (auth.role !== 'admin') return
-  const data = await listUsers({ page: 1, page_size: 100 })
-  const items = data.items || []
-  const values = [
-    data.total,
-    items.filter((u) => u.role === 'student').length,
-    items.filter((u) => u.role === 'staff').length,
-    items.filter((u) => u.role === 'admin').length
-  ]
+  let values = [0, 0, 0, 0]
+
+  if (auth.role === 'student') {
+    stats.value = studentStats
+    const data = await listPackages({ page: 1, page_size: 100 })
+    const items = data.items || []
+    values = [
+      items.filter((p) => p.status === 'in_stock').length,
+      items.filter((p) => p.status === 'overdue').length,
+      items.filter((p) => p.status === 'picked').length,
+      data.total
+    ]
+  } else {
+    stats.value = staffStats
+    const data = await packagesSummary()
+    values = [data.in_stock, data.overdue, data.today_inbound, data.today_picked]
+  }
+
   stats.value = stats.value.map((s, i) => ({ ...s, value: values[i] }))
   animateNumbers(values)
 }
@@ -572,6 +594,26 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll))
   background: var(--fill-2);
   padding: 2px 8px;
   border-radius: 999px;
+}
+
+.soon-tag.live {
+  color: #1d7a37;
+  background: rgba(52, 199, 89, 0.14);
+  font-weight: 600;
+}
+
+.soon-card.clickable {
+  cursor: pointer;
+  transition: transform 0.3s var(--spring), box-shadow 0.3s var(--ease);
+}
+
+.soon-card.clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.soon-card.clickable:active {
+  transform: scale(0.985);
 }
 
 .grid {

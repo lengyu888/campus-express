@@ -22,6 +22,24 @@ const routes = [
         meta: { title: '工作台' }
       },
       {
+        path: 'packages',
+        name: 'packages',
+        component: () => import('../views/Packages.vue'),
+        meta: { title: '包裹管理', roles: ['admin', 'staff'] }
+      },
+      {
+        path: 'pickup',
+        name: 'pickup',
+        component: () => import('../views/Pickup.vue'),
+        meta: { title: '取件核验', roles: ['admin', 'staff'] }
+      },
+      {
+        path: 'my-packages',
+        name: 'my-packages',
+        component: () => import('../views/MyPackages.vue'),
+        meta: { title: '我的包裹' }
+      },
+      {
         path: 'stations',
         name: 'stations',
         component: () => import('../views/Stations.vue'),
