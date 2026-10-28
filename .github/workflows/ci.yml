@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+
+jobs:
+  smoke:
+    name: 后端冒烟 · 阶段 ${{ matrix.stage }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [1, 2, 3, 4, 5]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_pass
+          MYSQL_DATABASE: campus_express
+          MYSQL_USER: campus
+          MYSQL_PASSWORD: campus_pass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_pass --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+          --character-set-server=utf8mb4
+          --collation-server=utf8mb4_unicode_ci
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: mysql+pymysql://campus:campus_pass@127.0.0.1:3306/campus_express?charset=utf8mb4
+      REDIS_URL: redis://127.0.0.1:6379/0
+      JWT_SECRET: ci_secret_key_for_testing_only_at_least_32_chars
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 安装后端依赖
+        run: pip install -r backend/requirements.txt
+
+      - name: 语法与导入检查
+        working-directory: backend
+        run: |
+          python -m compileall -q app
+          python -c "import app.main; print('import ok')"
+
+      - name: 执行数据库迁移
+        working-directory: backend
+        run: alembic upgrade head
+
+      - name: 初始化演示数据
+        working-directory: backend
+        run: python -m app.seed
+
+      - name: 启动并等待服务就绪
+        working-directory: backend
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/uvicorn.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/api/v1/health > /dev/null; then
+              echo "服务已就绪（第 ${i} 次探测）"
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8000/api/v1/health
+
+      - name: 阶段 ${{ matrix.stage }} 接口冒烟
+        run: python scripts/smoke_stage${{ matrix.stage }}.py
+
+      - name: 失败时输出服务日志
+        if: failure()
+        run: tail -80 /tmp/uvicorn.log
+
+  frontend:
+    name: 前端构建
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: npm ci
+
+      - name: 构建生产包
+        working-directory: frontend
+        run: npm run build
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+          retention-days: 3
+
+  compose:
+    name: 编排配置校验
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 校验 Compose 文件
+        run: |
+          cp deploy/.env.example deploy/.env
+          docker compose -f deploy/docker-compose.yml --env-file deploy/.env config -q
+          docker compose -f deploy/docker-compose.infra.yml --env-file deploy/.env config -q
+          echo "compose 配置校验通过"

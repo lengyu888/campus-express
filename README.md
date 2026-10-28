@@ -1,5 +1,8 @@
 # 校园快递收发系统（Campus Express）
 
+[![CI](https://github.com/lengyu888/campus-express/actions/workflows/ci.yml/badge.svg)](https://github.com/lengyu888/campus-express/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 > 软件工程课程设计 · 项目组  
 > 技术栈：Vue 3 + FastAPI + MySQL 8.0（Docker）
 
@@ -31,9 +34,12 @@ Campus_Express/
 │   ├── 阶段验收/            # 各阶段验收单
 │   └── assets/              # 设计图源文件
 ├── scripts/                 # 绘图、文档生成、接口冒烟测试
-├── 软件工程课程设计PPT.pdf   # 课程要求原始材料
+├── .github/workflows/       # GitHub Actions 持续集成
+├── LICENSE                  # MIT
 └── README.md
 ```
+
+> 课程提供的原始材料（`范例及模版/`、课程要求 PPT）仅在本地保留，已通过 `.gitignore` 排除，不入版本库。
 
 ## 4. 启动方式
 
@@ -129,7 +135,23 @@ docker compose -f deploy/docker-compose.yml up -d --build
   - `python -m app.tasks.overdue_scan --dry-run`：扫描超期包裹并推送提醒（建议每日定时执行）
   - `python scripts/cleanup_logs.py --days 90 --dry-run`：清理历史日志与已读通知
 
-## 8. 协作约定
+## 8. 持续集成
+
+`.github/workflows/ci.yml` 在推送到 `main` 与提交 Pull Request 时自动执行：
+
+| 任务 | 内容 |
+| --- | --- |
+| 后端冒烟（阶段 1–5 并行） | 每个阶段独立启动 MySQL 8.0 + Redis 7 服务容器 → Alembic 迁移 → 灌入演示数据 → 启动服务 → 执行该阶段接口测试 |
+| 前端构建 | `npm ci` + `npm run build`，产物作为 Artifact 保留 3 天 |
+| 编排校验 | `docker compose config` 校验两份 Compose 文件的语法与环境变量 |
+
+本地等价命令：`python scripts/smoke_stage{1..5}.py`（需后端已启动在 8000 端口）。
+
+## 9. 许可证
+
+本项目采用 [MIT License](LICENSE)，可自由用于学习与二次开发，请保留版权声明。
+
+## 10. 协作约定
 
 - 分支模型：`main` 为稳定分支，功能开发走 `feature/<模块名>`，合并前提交 Pull Request。
 - 提交信息：`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `chore:` 前缀。
