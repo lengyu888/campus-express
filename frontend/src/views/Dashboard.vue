@@ -11,9 +11,9 @@
     <section class="hero" ref="heroRef" v-reveal @pointermove="onHeroMove" @pointerleave="resetHero">
       <div class="hero-glow"></div>
       <div class="hero-content">
-        <span class="hero-eyebrow">阶段四 · 寄件与报表</span>
-        <h2>收件寄件双闭环</h2>
-        <p>寄件下单、揽收称重、轨迹跟踪、站内通知与统计报表已全部可用。下一阶段进入系统测试与部署验收。</p>
+        <span class="hero-eyebrow">阶段五 · 测试与验收</span>
+        <h2>系统已全部上线</h2>
+        <p>认证、驿站、收件、寄件、异常、通知与统计全部完成，184 项接口自测全部通过，已进入部署验收阶段。</p>
         <div class="hero-chips">
           <span class="chip" :class="health.database === 'up' ? 'ok' : 'bad'">
             <i></i> MySQL {{ health.database === 'up' ? '已连接' : '未连接' }}
@@ -83,7 +83,7 @@
             <h3>开发进度</h3>
             <p>按阶段验收，确认后提交</p>
           </div>
-          <span class="panel-meta">4 / 5</span>
+          <span class="panel-meta">5 / 5</span>
         </div>
         <div class="timeline">
           <div v-for="stage in stages" :key="stage.name" class="stage" :class="stage.state">
@@ -191,7 +191,7 @@ const studentSoon = [
 ]
 
 const staffSoon = [
-  { title: '寄件处理', desc: '揽收称重、登记发出与完成', stage: '可用', icon: Van, tint: 'rgba(0,122,255,.12)', color: '#007aff', path: '/shipment-manage' },
+  { title: '异常处理', desc: '破损、丢失与错分件的跟进', stage: '可用', icon: Warning, tint: 'rgba(255,59,48,.1)', color: '#b3261e', path: '/exceptions' },
   { title: '统计报表', desc: '收发量、超期率与驿站工作量', stage: '可用', icon: DataLine, tint: 'rgba(175,82,222,.12)', color: '#8944ab', path: '/stats' },
   { title: '消息中心', desc: '取件提醒、寄件进展与公告', stage: '可用', icon: Bell, tint: 'rgba(52,199,89,.13)', color: '#248a3d', path: '/notifications' }
 ]
@@ -202,16 +202,16 @@ const stages = [
   { name: '阶段一 认证与用户管理', state: 'done', stateText: '已完成', desc: 'Docker 基础设施、JWT 登录、账号与角色管理' },
   { name: '阶段二 驿站与货架管理', state: 'done', stateText: '已完成', desc: '驿站档案、货架分区、容量与占用率' },
   { name: '阶段三 快递入库与取件出库', state: 'done', stateText: '已完成', desc: '运单登记、格口分配、取件码、双重核验出库' },
-  { name: '阶段四 寄件、通知与统计', state: 'done', stateText: '待验收', desc: '寄件下单、轨迹跟踪、消息通知与报表' },
-  { name: '阶段五 系统测试与部署验收', state: 'todo', stateText: '待开始', desc: '测试用例、BUG 清单、一键部署演练' }
+  { name: '阶段四 寄件、通知与统计', state: 'done', stateText: '已完成', desc: '寄件下单、轨迹跟踪、消息通知与报表' },
+  { name: '阶段五 异常、日志与测试验收', state: 'done', stateText: '待验收', desc: '异常处理、操作日志、测试用例与部署验收' }
 ]
 
 const checks = [
-  '学生账号进入「我的寄件」，新建一单并查看运费估算',
-  '工作人员进入「寄件处理」，揽收称重并确认运费',
-  '依次登记发出、确认完成，查看轨迹节点',
-  '进入「消息中心」，查看通知并全部标记已读',
-  '管理员进入「统计报表」，切换 7 / 14 / 30 天趋势'
+  '工作人员进入「异常处理」，将待处理异常转为处理中',
+  '解决异常并选择「重新入库」，确认包裹恢复在库',
+  '管理员进入「操作日志」，按模块筛选查看写操作',
+  '学生下单寄件，工作人员完成揽收、发出与签收',
+  '在「统计报表」确认超期率与趋势数据同步更新'
 ]
 
 async function loadHealth() {

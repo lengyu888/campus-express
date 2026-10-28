@@ -452,8 +452,9 @@
       <p class="dialog-tip">{{ activeRow?.tracking_no }} · 异常件将暂停出库</p>
       <el-select v-model="exceptionType" style="width: 100%; margin-bottom: 12px">
         <el-option label="包装破损" value="damaged" />
+        <el-option label="包裹丢失" value="lost" />
         <el-option label="错分驿站" value="wrong_station" />
-        <el-option label="联系方式缺失" value="no_phone" />
+        <el-option label="异常退回" value="returned" />
         <el-option label="其他异常" value="other" />
       </el-select>
       <el-input v-model="exceptionRemark" type="textarea" :rows="3" maxlength="200" placeholder="补充说明" />

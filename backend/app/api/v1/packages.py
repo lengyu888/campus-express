@@ -11,6 +11,7 @@ from app.core.deps import get_current_user, require_roles
 from app.core.errors import ApiError
 from app.core.response import ok
 from app.db.session import get_db
+from app.models.exception_record import ExceptionRecord
 from app.models.package import Package
 from app.models.pickup_record import PickupRecord
 from app.models.shelf import Shelf
@@ -34,8 +35,9 @@ STATUS_LABEL = {
 VERIFY_LABEL = {"code_phone": "取件码+手机号", "manual": "人工核验"}
 EXCEPTION_LABEL = {
     "damaged": "包装破损",
+    "lost": "包裹丢失",
     "wrong_station": "错分驿站",
-    "no_phone": "联系方式缺失",
+    "returned": "异常退回",
     "other": "其他异常",
 }
 
@@ -636,11 +638,29 @@ def mark_exception(
     db: Session = Depends(get_db),
 ):
     pkg = get_package_or_404(db, package_id)
+    pending = db.execute(
+        select(ExceptionRecord.id).where(
+            ExceptionRecord.package_id == pkg.id,
+            ExceptionRecord.status.in_(("open", "processing")),
+        )
+    ).scalar_one_or_none()
+    if pending:
+        raise ApiError(10005, "该包裹已有未处理的异常记录", 409)
+
     if pkg.status not in ("in_stock", "overdue"):
         raise ApiError(20004, "仅在库包裹可以登记异常", 409)
 
     pkg.status = "exception"
     pkg.remark = f"{EXCEPTION_LABEL[payload.exception_type]}：{payload.remark or '待处理'}"
+    db.add(
+        ExceptionRecord(
+            package_id=pkg.id,
+            type=payload.exception_type,
+            description=pkg.remark,
+            status="open",
+            created_by=operator.id,
+        )
+    )
     db.commit()
     db.refresh(pkg)
     return ok(request, package_payload(pkg, operator), "异常已登记")

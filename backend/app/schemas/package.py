@@ -66,7 +66,7 @@ class ReturnIn(BaseModel):
 
 
 class ExceptionIn(BaseModel):
-    exception_type: Literal["damaged", "wrong_station", "no_phone", "other"] = "other"
+    exception_type: Literal["damaged", "lost", "wrong_station", "returned", "other"] = "other"
     remark: str | None = Field(default=None, max_length=200)
 
 

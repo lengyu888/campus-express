@@ -14,7 +14,8 @@ from app.core.config import settings
 from app.core.errors import ApiError
 from app.core.redis_client import get_redis
 from app.core.response import ok
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
+from app.services.audit import resolve, write_log
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,6 +47,41 @@ async def request_context(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Request-ID"] = request.state.request_id
     response.headers["X-Process-Time"] = f"{(time.perf_counter() - start) * 1000:.1f}ms"
+    return response
+
+
+AUDIT_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+@app.middleware("http")
+async def audit_trail(request: Request, call_next):
+    """对成功的写操作统一记录操作日志，失败请求不落库。"""
+    response = await call_next(request)
+    try:
+        if (
+            request.url.path.startswith(settings.API_V1_PREFIX)
+            and request.method in AUDIT_METHODS
+            and response.status_code < 400
+        ):
+            user = getattr(request.state, "user", None)
+            module, action, target_type, target_id = resolve(request.url.path, request.method)
+            with SessionLocal() as db:
+                write_log(
+                    db,
+                    user.id if user else None,
+                    module,
+                    action,
+                    target_type,
+                    target_id,
+                    {
+                        "method": request.method,
+                        "path": request.url.path,
+                        "status": response.status_code,
+                    },
+                    request.client.host if request.client else None,
+                )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("audit log failed: %s", exc)
     return response
 
 

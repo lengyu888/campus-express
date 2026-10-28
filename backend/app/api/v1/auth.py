@@ -78,6 +78,8 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     if user.status != 1:
         raise ApiError(10003, "账号已被禁用，请联系管理员", 403)
 
+    request.state.user = user
+
     if client is not None:
         try:
             client.delete(fail_key)

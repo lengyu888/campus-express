@@ -58,6 +58,18 @@ const routes = [
         meta: { title: '统计报表', roles: ['staff', 'admin'] }
       },
       {
+        path: 'exceptions',
+        name: 'exceptions',
+        component: () => import('../views/Exceptions.vue'),
+        meta: { title: '异常处理', roles: ['staff', 'admin'] }
+      },
+      {
+        path: 'logs',
+        name: 'logs',
+        component: () => import('../views/Logs.vue'),
+        meta: { title: '操作日志', roles: ['admin'] }
+      },
+      {
         path: 'notifications',
         name: 'notifications',
         component: () => import('../views/Notifications.vue'),

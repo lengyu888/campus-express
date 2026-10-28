@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.announcement import Announcement
+from app.models.exception_record import ExceptionRecord
 from app.models.notification import Notification
 from app.models.package import Package
 from app.models.pickup_record import PickupRecord
@@ -312,6 +313,32 @@ DEMO_ANNOUNCEMENTS = [
 ]
 
 
+def seed_exceptions(db) -> int:
+    if db.scalar(select(func.count()).select_from(ExceptionRecord)):
+        return 0
+
+    pkg = db.execute(
+        select(Package).where(Package.tracking_no == "YD5566778899")
+    ).scalar_one_or_none()
+    staff = db.execute(
+        select(User).where(User.student_no == "staff01")
+    ).scalar_one_or_none()
+    if pkg is None or staff is None:
+        return 0
+
+    db.add(
+        ExceptionRecord(
+            package_id=pkg.id,
+            type="damaged",
+            description="包装破损：外箱有明显挤压，待联系收件人确认。",
+            status="open",
+            created_by=staff.id,
+        )
+    )
+    db.commit()
+    return 1
+
+
 def seed_shipments(db) -> int:
     if db.scalar(select(func.count()).select_from(ShipmentOrder)):
         return 0
@@ -473,6 +500,7 @@ def main():
         stations = seed_stations(db)
         packages = seed_packages(db)
         shipments = seed_shipments(db)
+        exceptions = seed_exceptions(db)
         announcements = seed_announcements(db)
         notifications = seed_notifications(db)
     finally:
@@ -490,6 +518,8 @@ def main():
         print(f"seed 完成，新增演示包裹 {packages} 件")
     else:
         print("seed 完成，包裹数据已存在")
+    if exceptions:
+        print(f"seed 完成，新增演示异常记录 {exceptions} 条")
     if shipments:
         print(f"seed 完成，新增演示寄件订单 {shipments} 单")
     else:

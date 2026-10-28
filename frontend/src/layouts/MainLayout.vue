@@ -35,8 +35,8 @@
         <div class="side-note">
           <span class="dot"></span>
           <div>
-            <strong>阶段四</strong>
-            <span>寄件与报表</span>
+            <strong>阶段五</strong>
+            <span>测试与验收</span>
           </div>
         </div>
       </div>
@@ -111,7 +111,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
   HomeFilled, UserFilled, Setting, Bell, ArrowDown, ArrowUp, MagicStick, OfficeBuilding,
-  Box, CircleCheck, Tickets, Van, DataLine, ChatDotRound, Document
+  Box, CircleCheck, Tickets, Van, DataLine, ChatDotRound, Document,
+  Warning, List
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { motionTier, toggleMotion } from '../motion'
@@ -129,6 +130,7 @@ const menus = computed(() => {
     items.push({ path: '/pickup', label: '取件核验', icon: CircleCheck })
     items.push({ path: '/shipment-manage', label: '寄件处理', icon: Van })
     items.push({ path: '/stations', label: '驿站管理', icon: OfficeBuilding })
+    items.push({ path: '/exceptions', label: '异常处理', icon: Warning })
     items.push({ path: '/stats', label: '统计报表', icon: DataLine })
   } else {
     items.push({ path: '/my-packages', label: '我的包裹', icon: Tickets })
@@ -137,6 +139,7 @@ const menus = computed(() => {
   items.push({ path: '/notifications', label: '消息中心', icon: ChatDotRound })
   if (auth.role === 'admin') {
     items.push({ path: '/announcements', label: '公告管理', icon: Document })
+    items.push({ path: '/logs', label: '操作日志', icon: List })
     items.push({ path: '/users', label: '用户管理', icon: UserFilled })
   }
   items.push({ path: '/profile', label: '个人中心', icon: Setting })
