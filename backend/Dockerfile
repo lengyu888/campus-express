@@ -11,7 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN chmod +x /app/entrypoint.sh \
+# 兜底：即使检出时被转成 CRLF，也修正为 LF，避免 shebang 失效
+RUN sed -i 's/\r$//' /app/entrypoint.sh \
+    && chmod +x /app/entrypoint.sh \
     && useradd --create-home --uid 1001 appuser \
     && chown -R appuser:appuser /app
 
