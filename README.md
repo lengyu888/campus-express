@@ -118,7 +118,18 @@ docker compose -f deploy/docker-compose.yml up -d --build
 | 数据库 | MySQL 8.0（Docker 镜像） |
 | 文档形态 | Word 提交版 + Markdown 源文件 |
 
-## 7. 协作约定
+## 7. 性能与运维
+
+- 统计接口合并为聚合查询：总览 4 条 SQL（原 13 条）、驿站工作量 1 条（原 4N 条）
+- 组合索引：`packages(status, stored_at)`、`operation_logs(created_at)`、`exception_records(status, created_at)`
+- 连接池：`pool_size=10`、`max_overflow=20`、`pool_pre_ping`、`pool_recycle=1800`
+- 前端按依赖分包（vue / element-plus / axios / vendor），首屏入口从 1.14 MB 降到 11 KB，静态资源长缓存
+- 容器：后端以非 root（uid 1001）运行，后端健康检查通过后前端才启动
+- 运维脚本：
+  - `python -m app.tasks.overdue_scan --dry-run`：扫描超期包裹并推送提醒（建议每日定时执行）
+  - `python scripts/cleanup_logs.py --days 90 --dry-run`：清理历史日志与已读通知
+
+## 8. 协作约定
 
 - 分支模型：`main` 为稳定分支，功能开发走 `feature/<模块名>`，合并前提交 Pull Request。
 - 提交信息：`feat:` / `fix:` / `docs:` / `refactor:` / `test:` / `chore:` 前缀。

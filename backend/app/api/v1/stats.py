@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -21,6 +21,10 @@ def start_of_today() -> datetime:
     return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
+def _int(value) -> int:
+    return int(value or 0)
+
+
 @router.get("/overview", summary="总览指标")
 def overview(
     request: Request,
@@ -28,50 +32,76 @@ def overview(
     _: User = Depends(require_roles("staff", "admin")),
     db: Session = Depends(get_db),
 ):
+    """包裹、寄件、格口与用户指标合并为 4 条聚合查询，避免逐项 count。"""
     today = start_of_today()
     cutoff = datetime.now() - timedelta(days=settings.OVERDUE_THRESHOLD_DAYS)
+    station_filter = [Package.station_id == station_id] if station_id is not None else []
 
-    def pkg_count(*conditions) -> int:
-        stmt = select(func.count()).select_from(Package).where(*conditions)
-        if station_id is not None:
-            stmt = stmt.where(Package.station_id == station_id)
-        return int(db.scalar(stmt) or 0)
-
-    def ship_count(*conditions) -> int:
-        stmt = select(func.count()).select_from(ShipmentOrder).where(*conditions)
-        if station_id is not None:
-            stmt = stmt.where(ShipmentOrder.station_id == station_id)
-        return int(db.scalar(stmt) or 0)
-
-    in_stock = pkg_count(Package.status == "in_stock", Package.stored_at > cutoff)
-    overdue = pkg_count(Package.status == "in_stock", Package.stored_at <= cutoff)
-    shelf_stmt = select(
-        func.coalesce(func.sum(Shelf.used_count), 0),
-        func.coalesce(func.sum(Shelf.capacity), 0),
+    pkg_row = db.execute(
+        select(
+            func.sum(case((and_(Package.status == "in_stock", Package.stored_at > cutoff), 1), else_=0)),
+            func.sum(case((and_(Package.status == "in_stock", Package.stored_at <= cutoff), 1), else_=0)),
+            func.sum(case((Package.stored_at >= today, 1), else_=0)),
+            func.sum(case((and_(Package.picked_at.is_not(None), Package.picked_at >= today), 1), else_=0)),
+            func.sum(case((Package.status == "returned", 1), else_=0)),
+            func.sum(case((Package.status == "exception", 1), else_=0)),
+            func.count(),
+        )
+        .select_from(Package)
+        .where(*station_filter)
+    ).one()
+    in_stock, overdue, today_inbound, today_picked, returned, exception, packages_total = (
+        _int(v) for v in pkg_row
     )
-    if station_id is not None:
-        shelf_stmt = shelf_stmt.where(Shelf.station_id == station_id)
-    used, capacity = db.execute(shelf_stmt).one()
+
+    ship_filter = (
+        [ShipmentOrder.station_id == station_id] if station_id is not None else []
+    )
+    ship_row = db.execute(
+        select(
+            func.sum(case((ShipmentOrder.status == "pending", 1), else_=0)),
+            func.sum(case((ShipmentOrder.created_at >= today, 1), else_=0)),
+            func.count(),
+        )
+        .select_from(ShipmentOrder)
+        .where(*ship_filter)
+    ).one()
+    shipments_pending, shipments_today, shipments_total = (_int(v) for v in ship_row)
+
+    shelf_row = db.execute(
+        select(
+            func.coalesce(func.sum(Shelf.used_count), 0),
+            func.coalesce(func.sum(Shelf.capacity), 0),
+        ).where(*([Shelf.station_id == station_id] if station_id is not None else []))
+    ).one()
+    used, capacity = _int(shelf_row[0]), _int(shelf_row[1])
+
+    counters = db.execute(
+        select(
+            select(func.count()).select_from(User).scalar_subquery(),
+            select(func.count()).select_from(Station).scalar_subquery(),
+        )
+    ).one()
 
     return ok(
         request,
         {
             "in_stock": in_stock,
             "overdue": overdue,
-            "today_inbound": pkg_count(Package.stored_at >= today),
-            "today_picked": pkg_count(Package.picked_at >= today),
-            "returned": pkg_count(Package.status == "returned"),
-            "exception": pkg_count(Package.status == "exception"),
-            "packages_total": pkg_count(),
+            "today_inbound": today_inbound,
+            "today_picked": today_picked,
+            "returned": returned,
+            "exception": exception,
+            "packages_total": packages_total,
             "overdue_rate": round(overdue / (in_stock + overdue), 4) if (in_stock + overdue) else 0,
-            "shipments_pending": ship_count(ShipmentOrder.status == "pending"),
-            "shipments_total": ship_count(),
-            "shipments_today": ship_count(ShipmentOrder.created_at >= today),
-            "users_total": int(db.scalar(select(func.count()).select_from(User)) or 0),
-            "stations_total": int(db.scalar(select(func.count()).select_from(Station)) or 0),
-            "capacity": int(capacity or 0),
-            "used": int(used or 0),
-            "occupancy": round(int(used or 0) / int(capacity), 4) if capacity else 0,
+            "shipments_pending": shipments_pending,
+            "shipments_total": shipments_total,
+            "shipments_today": shipments_today,
+            "users_total": _int(counters[0]),
+            "stations_total": _int(counters[1]),
+            "capacity": capacity,
+            "used": used,
+            "occupancy": round(used / capacity, 4) if capacity else 0,
         },
     )
 
@@ -130,23 +160,25 @@ def station_workload(
     _: User = Depends(require_roles("staff", "admin")),
     db: Session = Depends(get_db),
 ):
+    """一次分组查询拿到全部驿站统计，再与驿站档案合并。"""
     cutoff = datetime.now() - timedelta(days=settings.OVERDUE_THRESHOLD_DAYS)
-    stations = db.execute(select(Station).order_by(Station.id.asc())).scalars().all()
+    rows = db.execute(
+        select(
+            Package.station_id,
+            func.sum(case((and_(Package.status == "in_stock", Package.stored_at > cutoff), 1), else_=0)),
+            func.sum(case((and_(Package.status == "in_stock", Package.stored_at <= cutoff), 1), else_=0)),
+            func.sum(case((Package.status == "picked", 1), else_=0)),
+            func.count(),
+        ).group_by(Package.station_id)
+    ).all()
+    stats = {
+        row[0]: (_int(row[1]), _int(row[2]), _int(row[3]), _int(row[4])) for row in rows
+    }
 
+    stations = db.execute(select(Station).order_by(Station.id.asc())).scalars().all()
     items = []
     for station in stations:
-        def count(*conditions) -> int:
-            return int(
-                db.scalar(
-                    select(func.count()).select_from(Package).where(
-                        Package.station_id == station.id, *conditions
-                    )
-                ) or 0
-            )
-
-        in_stock = count(Package.status == "in_stock", Package.stored_at > cutoff)
-        overdue = count(Package.status == "in_stock", Package.stored_at <= cutoff)
-        picked = count(Package.status == "picked")
+        in_stock, overdue, picked, total = stats.get(station.id, (0, 0, 0, 0))
         capacity = sum(s.capacity for s in station.shelves)
         used = sum(s.used_count for s in station.shelves)
         items.append(
@@ -158,7 +190,7 @@ def station_workload(
                 "in_stock": in_stock,
                 "overdue": overdue,
                 "picked": picked,
-                "total": count(),
+                "total": total,
                 "capacity": capacity,
                 "used": used,
                 "occupancy": round(used / capacity, 4) if capacity else 0,
@@ -212,12 +244,12 @@ def overdue_stats(
             }
         )
 
-    total_in_stock = int(
+    total_in_stock = _int(
         db.scalar(
             select(func.count()).select_from(Package).where(
                 Package.status == "in_stock", Package.stored_at > cutoff
             )
-        ) or 0
+        )
     )
     overdue_total = len(items)
     return ok(
